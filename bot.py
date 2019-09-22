@@ -16,6 +16,8 @@ GANG_DB="gangbot.db"
 
 bot = commands.Bot(command_prefix='!')
 
+TOKEN = os.getenv("TOKEN")
+
 class gangbot_db:
     def __init__(self, db_file):
         self.db_file = db_file
