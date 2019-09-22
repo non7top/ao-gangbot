@@ -13,11 +13,40 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
+
+
 GANG_DB="gangbot.db"
 
 bot = commands.Bot(command_prefix='!')
 
 TOKEN = os.getenv("TOKEN")
+ENV = os.getenv("ENV")
+
+if ENV == "DEV":
+    #logging.basicConfig(level=logging.DEBUG)
+
+    # Discrod logging is not needed, so 
+    #logger = logging.getLogger('discord')
+    #logger.setLevel(logging.WARNING)
+    #handler = logging.FileHandler(filename='discord.log', encoding='utf-8',
+    #        mode='w')
+    #handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:
+    #    %(message)s'))
+    #logger.addHandler(handler)
+    logger = logging.getLogger('gangbot_console')
+    logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+
+    logger2 = logging.getLogger('discord')
+    logger2.setLevel(logging.CRITICAL)
+    handler = logging.FileHandler(filename='discordAPI.log',
+            encoding='utf-8', mode='w')
+    handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:%(message)s'))
+    logger2.addHandler(handler)
+
+
 
 class gangbot_db:
     def __init__(self, db_file):
@@ -25,7 +54,7 @@ class gangbot_db:
         return None
 
     async def _insert(self, query):
-        print(query)
+        logger.debug(query)
         async with aiosqlite3.connect(self.db_file) as db:
             cursor = await db.execute(query)
             ret = cursor.lastrowid
@@ -35,7 +64,7 @@ class gangbot_db:
         return ret
 
     async def _select(self, query):
-        print(query)
+        logger.debug(query)
         async with aiosqlite3.connect(self.db_file) as db:
             async with db.cursor() as cursor:
                 await cursor.execute(query)
@@ -367,11 +396,12 @@ async def loot(ctx, *args):
 
 @bot.event
 async def on_ready():
-    print('Logged in as')
-    print(bot.user.name)
-    print(bot.user.id)
-    print(bot.guilds)
-    print('------')
+    logger.info('------ Gangbot starting')
+    logger.info('Logged in as')
+    logger.info('Username: ' + str(bot.user.name))
+    logger.info('ID: ' + str(bot.user.id))
+    logger.info('Guilds: ' + str(bot.guilds))
+    logger.info('------')
 
 
 bot.run(TOKEN)
