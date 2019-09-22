@@ -154,6 +154,20 @@ async def action_loot_start(ctx, loot_name="active"):
         await ctx.send("Usage !g start LOOT_NAME (i.e. !g start loot1) ")
         return
 
+    sess = await gb._get_sess(loot_name, ctx.guild.id)
+    if len(sess) != 0:
+        # Last session is active
+        if sess[0][4] == None:
+            await ctx.send(":no_entry_sign: There is already active session with that name `[{}] {}`. Choose another name.".format( \
+                    sess[0][0], sess[0][2]))
+            return
+
+        # If last session with that name is inactive, but still was not sold, error
+        if sess[0][4] != None and sess[0][5] == None:
+            await ctx.send(":no_entry_sign: :moneybag: Latest session with this name has not been sold yet, choose another name. ([{}] {})".format( \
+                sess[0][0], sess[0][2]))
+            return
+
     _time = datetime.now()
     _pp_time=_time.strftime('%d %B %Y, %H:%M')
 
