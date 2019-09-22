@@ -295,7 +295,7 @@ async def action_loot_pay(ctx, member_id, session_id):
         return
 
     await gb._set_pay(member_id, session_id)
-
+    await action_loot_show(ctx, session[0][0])
 
 async def action_loot_show(ctx, loot_name):
     logger.debug("Show loot " + str(loot_name))
