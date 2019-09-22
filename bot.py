@@ -302,6 +302,12 @@ async def action_loot_show(ctx, loot_name):
     # Can show using int id and name
     session = await gb._get_sess(loot_name, ctx.guild.id)
 
+    # No session found with given id
+    if len(session) == 0:
+        await ctx.send(":no_entry_sign: No session found with given id :no_entry_sign:")
+        return
+
+
     # If session hasn't ended, use current time as stop_time
     _time = datetime.now()
     if session[0][4] == None:
