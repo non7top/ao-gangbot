@@ -147,7 +147,7 @@ async def action_show_help(ctx):
     await ctx.author.send(help_msg)
 
 async def action_loot_start(ctx, loot_name="active"):
-    print("Starting " + loot_name)
+    logger.info("Starting " + loot_name)
 
     # If loot_name = default (active) then error out
     if loot_name == 'active':
@@ -158,7 +158,7 @@ async def action_loot_start(ctx, loot_name="active"):
     _pp_time=_time.strftime('%d %B %Y, %H:%M')
 
     session_id = await gb._loot_start(loot_name,_time,ctx.guild.id)
-    await ctx.send("Registered [{}] {}".format(session_id, loot_name))
+    await ctx.send(":white_check_mark: Registered session [{}] {}".format(session_id, loot_name))
 
     await action_loot_join(ctx, loot_name)
 
@@ -170,14 +170,14 @@ async def action_loot_join(ctx, loot_name):
 
     # Can't join inactive session
     if sess_id[0][4] != None:
-        await ctx.send("Can't join ended session >> {} ".format(ctx.author.display_name))
+        await ctx.send(":no_entry_sign: Can't join ended session >> {} ".format(ctx.author.display_name))
         return
 
     # Can't join twice, unless other sessions are inactive
     _details = await gb._loot_member_details_by_name(sess_id[0][0], ctx.author.display_name)
     for d in _details:
         if d[3] == None: #there is an active session
-            await ctx.send("Can't join twice >> {} ".format(ctx.author.display_name))
+            await ctx.send(":no_entry_sign: Can't join twice >> {} ".format(ctx.author.display_name))
             return
 
 
@@ -277,15 +277,14 @@ async def action_loot_pay(ctx, member_id, session_id):
     session = await gb._get_sess(session_id, ctx.guild.id)
     print(session)
     if len(session) == 0:
-        await ctx.send("Gang session {} was not found for your guild".format( \
-                session_id))
+        await ctx.send(":no_entry_sign: No session found with given id :no_entry_sign:")
         return
 
     await gb._set_pay(member_id, session_id)
 
 
 async def action_loot_show(ctx, loot_name):
-    print("Show loot " + str(loot_name))
+    logger.debug("Show loot " + str(loot_name))
     # Can show using int id and name
     session = await gb._get_sess(loot_name, ctx.guild.id)
 
@@ -309,7 +308,7 @@ async def action_loot_show(ctx, loot_name):
 
     members = await gb._loot_members(sess_id)
 
-    _name = "[{}] {} > {} <".format(sess_id, session_name, str(money))
+    _name = "[{}] {} :moneybag: {} ".format(sess_id, session_name, str(money))
     description = "{} with {}ppl".format(pretty_duration, len(members))
 
     embed=discord.Embed(title=_name, description=description, color=0x369dc9)
