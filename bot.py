@@ -23,6 +23,7 @@ bot = commands.Bot(command_prefix='!')
 TOKEN = os.getenv("TOKEN")
 ENV = os.getenv("ENV")
 
+logger = logging.getLogger('gangbot_console')
 if ENV == "DEV":
     #logging.basicConfig(level=logging.DEBUG)
 
@@ -34,7 +35,7 @@ if ENV == "DEV":
     #handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:
     #    %(message)s'))
     #logger.addHandler(handler)
-    logger = logging.getLogger('gangbot_console')
+    
     logger.setLevel(logging.DEBUG)
     handler = logging.StreamHandler()
     logger.addHandler(handler)
