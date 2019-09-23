@@ -13,11 +13,40 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+import logging
+
+
 GANG_DB="gangbot.db"
 
 bot = commands.Bot(command_prefix='!')
 
 TOKEN = os.getenv("TOKEN")
+ENV = os.getenv("ENV")
+
+if ENV == "DEV":
+    #logging.basicConfig(level=logging.DEBUG)
+
+    # Discrod logging is not needed, so 
+    #logger = logging.getLogger('discord')
+    #logger.setLevel(logging.WARNING)
+    #handler = logging.FileHandler(filename='discord.log', encoding='utf-8',
+    #        mode='w')
+    #handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:
+    #    %(message)s'))
+    #logger.addHandler(handler)
+    logger = logging.getLogger('gangbot_console')
+    logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+
+    logger2 = logging.getLogger('discord')
+    logger2.setLevel(logging.CRITICAL)
+    handler = logging.FileHandler(filename='discordAPI.log',
+            encoding='utf-8', mode='w')
+    handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:%(message)s'))
+    logger2.addHandler(handler)
+
+
 
 class gangbot_db:
     def __init__(self, db_file):
@@ -25,7 +54,7 @@ class gangbot_db:
         return None
 
     async def _insert(self, query):
-        print(query)
+        logger.debug(query)
         async with aiosqlite3.connect(self.db_file) as db:
             cursor = await db.execute(query)
             ret = cursor.lastrowid
@@ -35,7 +64,7 @@ class gangbot_db:
         return ret
 
     async def _select(self, query):
-        print(query)
+        logger.debug(query)
         async with aiosqlite3.connect(self.db_file) as db:
             async with db.cursor() as cursor:
                 await cursor.execute(query)
@@ -118,18 +147,32 @@ async def action_show_help(ctx):
     await ctx.author.send(help_msg)
 
 async def action_loot_start(ctx, loot_name="active"):
-    print("Starting " + loot_name)
+    logger.info("Starting " + loot_name)
 
     # If loot_name = default (active) then error out
     if loot_name == 'active':
         await ctx.send("Usage !g start LOOT_NAME (i.e. !g start loot1) ")
         return
 
+    sess = await gb._get_sess(loot_name, ctx.guild.id)
+    if len(sess) != 0:
+        # Last session is active
+        if sess[0][4] == None:
+            await ctx.send(":no_entry_sign: There is already active session with that name `[{}] {}`. Choose another name.".format( \
+                    sess[0][0], sess[0][2]))
+            return
+
+        # If last session with that name is inactive, but still was not sold, error
+        if sess[0][4] != None and sess[0][5] == None:
+            await ctx.send(":no_entry_sign: :moneybag: Latest session with this name has not been sold yet, choose another name. ([{}] {})".format( \
+                sess[0][0], sess[0][2]))
+            return
+
     _time = datetime.now()
     _pp_time=_time.strftime('%d %B %Y, %H:%M')
 
     session_id = await gb._loot_start(loot_name,_time,ctx.guild.id)
-    await ctx.send("Registered [{}] {}".format(session_id, loot_name))
+    await ctx.send(":white_check_mark: Registered session [{}] {}".format(session_id, loot_name))
 
     await action_loot_join(ctx, loot_name)
 
@@ -141,14 +184,14 @@ async def action_loot_join(ctx, loot_name):
 
     # Can't join inactive session
     if sess_id[0][4] != None:
-        await ctx.send("Can't join ended session >> {} ".format(ctx.author.display_name))
+        await ctx.send(":no_entry_sign: Can't join ended session >> {} ".format(ctx.author.display_name))
         return
 
     # Can't join twice, unless other sessions are inactive
     _details = await gb._loot_member_details_by_name(sess_id[0][0], ctx.author.display_name)
     for d in _details:
         if d[3] == None: #there is an active session
-            await ctx.send("Can't join twice >> {} ".format(ctx.author.display_name))
+            await ctx.send(":no_entry_sign: Can't join twice >> {} ".format(ctx.author.display_name))
             return
 
 
@@ -248,17 +291,22 @@ async def action_loot_pay(ctx, member_id, session_id):
     session = await gb._get_sess(session_id, ctx.guild.id)
     print(session)
     if len(session) == 0:
-        await ctx.send("Gang session {} was not found for your guild".format( \
-                session_id))
+        await ctx.send(":no_entry_sign: No session found with given id :no_entry_sign:")
         return
 
     await gb._set_pay(member_id, session_id)
-
+    await action_loot_show(ctx, session[0][0])
 
 async def action_loot_show(ctx, loot_name):
-    print("Show loot " + str(loot_name))
+    logger.debug("Show loot " + str(loot_name))
     # Can show using int id and name
     session = await gb._get_sess(loot_name, ctx.guild.id)
+
+    # No session found with given id
+    if len(session) == 0:
+        await ctx.send(":no_entry_sign: No session found with given id :no_entry_sign:")
+        return
+
 
     # If session hasn't ended, use current time as stop_time
     _time = datetime.now()
@@ -280,7 +328,7 @@ async def action_loot_show(ctx, loot_name):
 
     members = await gb._loot_members(sess_id)
 
-    _name = "[{}] {} > {} <".format(sess_id, session_name, str(money))
+    _name = "[{}] {} :moneybag: {} ".format(sess_id, session_name, str(money))
     description = "{} with {}ppl".format(pretty_duration, len(members))
 
     embed=discord.Embed(title=_name, description=description, color=0x369dc9)
@@ -367,11 +415,12 @@ async def loot(ctx, *args):
 
 @bot.event
 async def on_ready():
-    print('Logged in as')
-    print(bot.user.name)
-    print(bot.user.id)
-    print(bot.guilds)
-    print('------')
+    logger.info('------ Gangbot starting')
+    logger.info('Logged in as')
+    logger.info('Username: ' + str(bot.user.name))
+    logger.info('ID: ' + str(bot.user.id))
+    logger.info('Guilds: ' + str(bot.guilds))
+    logger.info('------')
 
 
 bot.run(TOKEN)
