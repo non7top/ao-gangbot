@@ -102,14 +102,26 @@ class gangbot_db:
                 stop_time, loot_name, guild )
         return await self._insert(query)
 
+    async def _loot_open(self, loot_name, guild):
+        query="UPDATE gang_session SET stop_time='' WHERE id='{}' AND guild='{}';".format( \
+                loot_name, guild )
+        return await self._insert(query)
+
     async def _loot_list(self, loot_name, guild):
         query="SELECT * FROM gang_session WHERE ifnull(stop_time, '')='' AND guild='{}';".format( \
                 guild )
         return await self._select(query)
 
     async def _loot_member_details_by_name(self, session_id, user_id):
-        query="SELECT * FROM gang_members WHERE session_id='{}' AND user_id='{}'".format( \
+        # user_id can be id or name
+        try:
+            _id=int(user_id)
+            query="SELECT * FROM gang_members WHERE session_id='{}' AND id='{}'".format( \
+                    session_id, user_id)
+        except:
+            query="SELECT * FROM gang_members WHERE session_id='{}' AND user_id='{}'".format( \
                 session_id, user_id)
+
         return await self._select(query)
 
     async def _get_sess(self, loot_name, guild):
@@ -139,6 +151,7 @@ async def action_show_help(ctx):
         !g list - list active gang sessions
         !g start loot1 - start gang session with name loot1, will output session id
         !g stop loot1|session_id - stop session, will part remaining memebrs
+        !g open session_id - open session, use if it was closed by accident, but everyone will have to rejoin
         !g show loot1|session_id - show details about session
         !g join loot1|session_id - join gang session
         !g leave loot1|session_id - leave session
@@ -198,8 +211,9 @@ async def action_loot_join(ctx, loot_name):
 
     _id = await gb._loot_join(sess_id[0][0], str(ctx.author.display_name),_time)
 
-    msg = "Registered `[{}] {}` in [{}] {}".format(_id, str(ctx.author.display_name), sess_id[0][0], loot_name)
+    msg = "Registered `[{}]{}` in [{}]{}".format(_id, str(ctx.author.display_name), sess_id[0][0], loot_name)
     await ctx.author.send(msg)
+    await ctx.send(msg)
 
 async def action_loot_leave(ctx, loot_name):
     _time = datetime.now()
@@ -215,6 +229,17 @@ async def action_loot_leave(ctx, loot_name):
     await gb._loot_leave(sess_id[0][0], str(ctx.author.display_name),_time)
 
     msg = str(ctx.author.display_name) + " left " + loot_name
+    await ctx.send(msg)
+
+async def action_loot_open(ctx, loot_name):
+    print("Opening " + loot_name)
+
+    sess_id = await gb._get_sess(loot_name, ctx.guild.id)
+    await gb._loot_open(loot_name, ctx.guild.id)
+
+    msg = "Opened session `[{}]{}`, all active memebrs need to rejoin to resume accounting".format( \
+            sess_id[0][0], sess_id[0][2])
+    await ctx.send(msg)
 
 async def action_loot_stop(ctx, loot_name):
     print("Stopping " + loot_name)
@@ -295,8 +320,12 @@ async def action_loot_pay(ctx, member_id, session_id):
         await ctx.send(":no_entry_sign: No session found with given id :no_entry_sign:")
         return
 
+    member = await gb._loot_member_details_by_name(session[0][0], member_id)
+
     await gb._set_pay(member_id, session_id)
     await action_loot_show(ctx, session[0][0])
+    await ctx.send("[{}]{} got his share from [{}]{}".format( \
+            member_id, member[0][4], session[0][0], session[0][2]))
 
 async def action_loot_show(ctx, loot_name):
     logger.debug("Show loot " + str(loot_name))
@@ -399,6 +428,8 @@ async def loot(ctx, *args):
         await action_loot_start(ctx, loot_name)
     elif loot_action == "stop":
         await action_loot_stop(ctx, loot_name)
+    elif loot_action == "open":
+        await action_loot_open(ctx, loot_name)
     elif loot_action == "join":
         await action_loot_join(ctx, loot_name)
     elif loot_action == "leave":
