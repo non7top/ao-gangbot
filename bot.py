@@ -108,8 +108,15 @@ class gangbot_db:
         return await self._select(query)
 
     async def _loot_member_details_by_name(self, session_id, user_id):
-        query="SELECT * FROM gang_members WHERE session_id='{}' AND user_id='{}'".format( \
+        # user_id can be id or name
+        try:
+            _id=int(user_id)
+            query="SELECT * FROM gang_members WHERE session_id='{}' AND id='{}'".format( \
+                    session_id, user_id)
+        except:
+            query="SELECT * FROM gang_members WHERE session_id='{}' AND user_id='{}'".format( \
                 session_id, user_id)
+
         return await self._select(query)
 
     async def _get_sess(self, loot_name, guild):
@@ -295,8 +302,12 @@ async def action_loot_pay(ctx, member_id, session_id):
         await ctx.send(":no_entry_sign: No session found with given id :no_entry_sign:")
         return
 
+    member = await gb._loot_member_details_by_name(session[0][0], member_id)
+
     await gb._set_pay(member_id, session_id)
     await action_loot_show(ctx, session[0][0])
+    await ctx.send("[{}]{} got his share from [{}]{}".format( \
+            member_id, member[0][4], session[0][0], session[0][2]))
 
 async def action_loot_show(ctx, loot_name):
     logger.debug("Show loot " + str(loot_name))
