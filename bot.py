@@ -102,6 +102,11 @@ class gangbot_db:
                 stop_time, loot_name, guild )
         return await self._insert(query)
 
+    async def _loot_open(self, loot_name, guild):
+        query="UPDATE gang_session SET stop_time='' WHERE id='{}' AND guild='{}';".format( \
+                loot_name, guild )
+        return await self._insert(query)
+
     async def _loot_list(self, loot_name, guild):
         query="SELECT * FROM gang_session WHERE ifnull(stop_time, '')='' AND guild='{}';".format( \
                 guild )
@@ -146,6 +151,7 @@ async def action_show_help(ctx):
         !g list - list active gang sessions
         !g start loot1 - start gang session with name loot1, will output session id
         !g stop loot1|session_id - stop session, will part remaining memebrs
+        !g open session_id - open session, use if it was closed by accident, but everyone will have to rejoin
         !g show loot1|session_id - show details about session
         !g join loot1|session_id - join gang session
         !g leave loot1|session_id - leave session
@@ -223,6 +229,16 @@ async def action_loot_leave(ctx, loot_name):
     await gb._loot_leave(sess_id[0][0], str(ctx.author.display_name),_time)
 
     msg = str(ctx.author.display_name) + " left " + loot_name
+    await ctx.send(msg)
+
+async def action_loot_open(ctx, loot_name):
+    print("Opening " + loot_name)
+
+    sess_id = await gb._get_sess(loot_name, ctx.guild.id)
+    await gb._loot_open(loot_name, ctx.guild.id)
+
+    msg = "Opened session `[{}]{}`, all active memebrs need to rejoin to resume accounting".format( \
+            sess_id[0][0], sess_id[0][2])
     await ctx.send(msg)
 
 async def action_loot_stop(ctx, loot_name):
@@ -412,6 +428,8 @@ async def loot(ctx, *args):
         await action_loot_start(ctx, loot_name)
     elif loot_action == "stop":
         await action_loot_stop(ctx, loot_name)
+    elif loot_action == "open":
+        await action_loot_open(ctx, loot_name)
     elif loot_action == "join":
         await action_loot_join(ctx, loot_name)
     elif loot_action == "leave":
