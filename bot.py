@@ -2,7 +2,7 @@
 import discord
 from discord.ext import commands
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlite3 import OperationalError
 import aiosqlite3
@@ -142,6 +142,16 @@ class gangbot_db:
                 session_id)
         return await self._select(query)
 
+    async def _session_from_memberid(self, member_id, guild):
+        query="""
+        SELECT gang_session.id, gang_session.loot, gang_members.user_id
+        FROM gang_session
+        INNER JOIN gang_members on gang_members.session_id=gang_session.id
+        WHERE gang_members.id='{}' AND gang_session.guild='{}';
+        """.format( \
+                member_id, guild)
+        return await self._select(query)
+
 gb=gangbot_db(GANG_DB)
 
 async def action_show_help(ctx):
@@ -213,6 +223,33 @@ async def action_loot_join(ctx, loot_name):
 
     msg = "Registered `[{}]{}` in [{}]{}".format(_id, str(ctx.author.display_name), sess_id[0][0], loot_name)
     await ctx.author.send(msg)
+    await ctx.send(msg)
+
+async def action_loot_kick(ctx, member_id):
+    _time = datetime.now() - timedelta(minutes=15)
+    print("Parting _" + str(ctx.author.display_name) )
+
+    #_details = await gb._loot_member_details_by_name(sess_id[0][0], ctx.author.display_name)
+    _details = await gb._session_from_memberid(member_id, ctx.guild.id)
+    print(_details)
+
+    # Search for a match between loot session and member
+    if len(_details) == 0:
+        await ctx.send(":no_entry_sign: No member found with given id :no_entry_sign:")
+        return
+
+    session = await gb._get_sess(_details[0][0], ctx.guild.id)
+
+    # Can't leave or join inactive session
+    if session[0][4] != None:
+        await ctx.send(":no_entry_sign: Can't leave ended session >> {} ".format(ctx.author.display_name))
+        return
+
+
+    await gb._loot_leave(session[0][0], _details[0][2], _time)
+
+    msg = ":japanese_ogre: Lazy ass [{0}]{1} was kicked from [{2}]{3} by {4} with 15 min penalty".format( \
+            member_id, _details[0][2], session[0][0], session[0][2], ctx.author.display_name)
     await ctx.send(msg)
 
 async def action_loot_leave(ctx, loot_name):
@@ -292,7 +329,11 @@ async def session_length(start, stop):
     if isinstance(stop, str):
         stop=await date_from_str(stop)
 
-    return int((stop - start).total_seconds())
+    length = int((stop - start).total_seconds())
+    if length < 0:
+        length = 1
+
+    return length
 
 async def pretty_length(lenght):
     # accept int seconds
@@ -442,6 +483,8 @@ async def loot(ctx, *args):
         await action_loot_sold(ctx, loot_name, args[2])
     elif loot_action == "pay":
         await action_loot_pay(ctx, args[1], args[2])
+    elif loot_action == "kick":
+        await action_loot_kick(ctx, args[1])
     else:
         await ctx.send("Usage: !g start|stop|join|leave loot3|id")
 
