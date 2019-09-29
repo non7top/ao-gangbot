@@ -205,8 +205,9 @@ async def action_loot_join(ctx, loot_name):
 
     _id = await gb._loot_join(sess_id[0][0], str(ctx.author.display_name),_time)
 
-    msg = "Registered `[{}] {}` in [{}] {}".format(_id, str(ctx.author.display_name), sess_id[0][0], loot_name)
+    msg = "Registered `[{}]{}` in [{}]{}".format(_id, str(ctx.author.display_name), sess_id[0][0], loot_name)
     await ctx.author.send(msg)
+    await ctx.send(msg)
 
 async def action_loot_leave(ctx, loot_name):
     _time = datetime.now()
@@ -222,6 +223,7 @@ async def action_loot_leave(ctx, loot_name):
     await gb._loot_leave(sess_id[0][0], str(ctx.author.display_name),_time)
 
     msg = str(ctx.author.display_name) + " left " + loot_name
+    await ctx.send(msg)
 
 async def action_loot_stop(ctx, loot_name):
     print("Stopping " + loot_name)
